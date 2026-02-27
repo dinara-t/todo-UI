@@ -17,8 +17,14 @@ export const todoService = {
       })}`,
     ),
   create: (dto: CreateTodoDto) =>
-    http<Todo>("/todos", { method: "POST", body: JSON.stringify(dto) }),
+    http<Todo>("/todos", {
+      method: "POST",
+      body: dto,
+    }),
   update: (id: number, dto: UpdateTodoDto) =>
-    http<Todo>(`/todos/${id}`, { method: "PUT", body: JSON.stringify(dto) }),
+    http<Todo>(`/todos/${id}`, {
+      method: "PUT",
+      body: dto,
+    }),
   archive: (id: number) => http<void>(`/todos/${id}`, { method: "DELETE" }),
 };

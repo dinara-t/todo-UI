@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Category } from "../../types/category";
 import type { CreateTodoDto, Todo, UpdateTodoDto } from "../../types/todo";
-import { minLen, isPositiveInt } from "../../utils/validators";
+import { isPositiveInt, minLen } from "../../utils/validators";
 import Button from "../Button/Button";
 import Input from "../Form/Input";
 import CategorySelect from "../CategorySelect/CategorySelect";
@@ -29,16 +29,28 @@ export default function TodoForm(props: Props) {
       return {
         title: props.todo.title,
         completed: props.todo.completed,
-        categoryId: props.todo.category?.id as number | "",
+        categoryId: props.todo.category?.id ?? "",
       };
     }
-    return { title: "", completed: false, categoryId: "" as number | "" };
-  }, [props]);
+
+    return {
+      title: "",
+      completed: false,
+      categoryId: categories[0]?.id ?? ("" as number | ""),
+    };
+  }, [props, categories]);
 
   const [title, setTitle] = useState(initial.title);
   const [completed, setCompleted] = useState(initial.completed);
   const [categoryId, setCategoryId] = useState<number | "">(initial.categoryId);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (props.mode !== "create") return;
+    if (categoryId !== "") return;
+    if (!categories.length) return;
+    setCategoryId(categories[0].id);
+  }, [props.mode, categoryId, categories]);
 
   function submit() {
     setError(null);
@@ -53,20 +65,13 @@ export default function TodoForm(props: Props) {
       return;
     }
 
-    if (props.mode === "create") {
-      props.onSubmit({
-        title: title.trim(),
-        completed: Boolean(completed),
-        categoryId: Number(categoryId),
-      });
-      return;
-    }
-
-    props.onSubmit({
+    const dto = {
       title: title.trim(),
       completed: Boolean(completed),
       categoryId: Number(categoryId),
-    });
+    };
+
+    props.onSubmit(dto as any);
   }
 
   return (

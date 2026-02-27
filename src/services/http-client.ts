@@ -28,15 +28,25 @@ function buildUrl(
   return url.toString();
 }
 
+function isStringBody(body: unknown): body is string {
+  return typeof body === "string";
+}
+
 export async function http<T>(
   path: string,
   options: RequestOptions = {},
   query?: Record<string, string | number | boolean | undefined | null>,
 ): Promise<T> {
+  const hasBody = options.body !== undefined;
+
   const res = await fetch(buildUrl(path, query), {
     method: options.method || "GET",
-    headers: options.body ? { "Content-Type": "application/json" } : undefined,
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    headers: hasBody ? { "Content-Type": "application/json" } : undefined,
+    body: hasBody
+      ? isStringBody(options.body)
+        ? options.body
+        : JSON.stringify(options.body)
+      : undefined,
     signal: options.signal,
   });
 
