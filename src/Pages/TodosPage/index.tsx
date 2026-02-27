@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Category } from "../../types/category";
 import type {
+  CreateTodoDto,
   Todo,
   TodoQuery,
   TodoSortBy,
@@ -55,7 +56,7 @@ export default function TodosPage() {
     return { total, done, open };
   }, [todos]);
 
-  async function loadAll() {
+  const loadAll = useCallback(async () => {
     setErr(null);
     setLoading(true);
     try {
@@ -70,11 +71,11 @@ export default function TodosPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [query]);
 
   useEffect(() => {
     loadAll();
-  }, [query.category, query.sortBy, query.order]);
+  }, [loadAll]);
 
   async function toggle(todo: Todo) {
     setErr(null);
@@ -103,11 +104,7 @@ export default function TodosPage() {
     setEditOpen(true);
   }
 
-  async function create(dto: {
-    title: string;
-    completed: boolean;
-    categoryId: number;
-  }) {
+  async function create(dto: CreateTodoDto) {
     setErr(null);
     setSubmitting(true);
     try {
@@ -121,11 +118,7 @@ export default function TodosPage() {
     }
   }
 
-  async function save(dto: {
-    title?: string | null;
-    completed?: boolean | null;
-    categoryId?: number | null;
-  }) {
+  async function save(dto: UpdateTodoDto) {
     if (!activeTodo) return;
     setErr(null);
     setSubmitting(true);
@@ -142,19 +135,17 @@ export default function TodosPage() {
   }
 
   return (
-    <div className="grid gap-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+    <div className="grid gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-text">Todos</h1>
-          <p className="mt-1 text-sm text-gray-text/70">
-            Filtering + sorting matches your Spring Boot query params.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap gap-2">
             <StatPill label="total" value={String(stats.total)} />
             <StatPill label="open" value={String(stats.open)} />
-            <StatPill label="completed" value={String(stats.done)} />
+            <StatPill label="done" value={String(stats.done)} />
           </div>
         </div>
+
         <div className="flex items-center gap-2">
           <Button variant="secondary" onClick={loadAll} disabled={loading}>
             Refresh
@@ -176,13 +167,13 @@ export default function TodosPage() {
       />
 
       {err ? (
-        <div className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 ring-1 ring-rose-200 whitespace-pre-line">
+        <div className="whitespace-pre-line rounded-xl bg-rose-500/10 p-4 text-sm text-rose-700 ring-1 ring-rose-200">
           {err}
         </div>
       ) : null}
 
       {loading ? (
-        <div className="rounded-2xl bg-gray-input/35 p-6 text-sm text-gray-text/70 ring-1 ring-brown/10">
+        <div className="rounded-xl bg-white p-6 text-sm text-gray-text/70 ring-1 ring-brown/10">
           Loading…
         </div>
       ) : (

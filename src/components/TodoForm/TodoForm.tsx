@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import type { Category } from "../../types/category";
 import type { CreateTodoDto, Todo, UpdateTodoDto } from "../../types/todo";
 import { isPositiveInt, minLen } from "../../utils/validators";
@@ -6,51 +6,44 @@ import Button from "../Button/Button";
 import Input from "../Form/Input";
 import CategorySelect from "../CategorySelect/CategorySelect";
 
-type Props =
-  | {
-      mode: "create";
-      categories: Category[];
-      onSubmit: (dto: CreateTodoDto) => void;
-      submitting?: boolean;
-    }
-  | {
-      mode: "edit";
-      categories: Category[];
-      todo: Todo;
-      onSubmit: (dto: UpdateTodoDto) => void;
-      submitting?: boolean;
-    };
+type CreateProps = {
+  mode: "create";
+  categories: Category[];
+  onSubmit: (dto: CreateTodoDto) => void;
+  submitting?: boolean;
+};
+
+type EditProps = {
+  mode: "edit";
+  categories: Category[];
+  todo: Todo;
+  onSubmit: (dto: UpdateTodoDto) => void;
+  submitting?: boolean;
+};
+
+type Props = CreateProps | EditProps;
 
 export default function TodoForm(props: Props) {
   const categories = props.categories;
 
-  const initial = useMemo(() => {
-    if (props.mode === "edit") {
-      return {
-        title: props.todo.title,
-        completed: props.todo.completed,
-        categoryId: props.todo.category?.id ?? "",
-      };
-    }
+  const initialTitle = props.mode === "edit" ? (props.todo.title ?? "") : "";
 
-    return {
-      title: "",
-      completed: false,
-      categoryId: categories[0]?.id ?? ("" as number | ""),
-    };
-  }, [props, categories]);
+  const initialCompleted =
+    props.mode === "edit" ? Boolean(props.todo.completed) : false;
 
-  const [title, setTitle] = useState(initial.title);
-  const [completed, setCompleted] = useState(initial.completed);
-  const [categoryId, setCategoryId] = useState<number | "">(initial.categoryId);
+  const initialCategoryId: number | "" =
+    props.mode === "edit" ? (props.todo.category?.id ?? "") : "";
+
+  const [title, setTitle] = useState<string>(initialTitle);
+  const [completed, setCompleted] = useState<boolean>(initialCompleted);
+  const [categoryId, setCategoryId] = useState<number | "">(initialCategoryId);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (props.mode !== "create") return;
-    if (categoryId !== "") return;
-    if (!categories.length) return;
-    setCategoryId(categories[0].id);
-  }, [props.mode, categoryId, categories]);
+  const defaultCategoryId: number | "" =
+    categories.length > 0 ? categories[0].id : "";
+
+  const effectiveCategoryId: number | "" =
+    categoryId === "" ? defaultCategoryId : categoryId;
 
   function submit() {
     setError(null);
@@ -60,7 +53,7 @@ export default function TodoForm(props: Props) {
       return;
     }
 
-    if (!isPositiveInt(categoryId)) {
+    if (!isPositiveInt(effectiveCategoryId)) {
       setError("Category is required");
       return;
     }
@@ -68,10 +61,15 @@ export default function TodoForm(props: Props) {
     const dto = {
       title: title.trim(),
       completed: Boolean(completed),
-      categoryId: Number(categoryId),
+      categoryId: Number(effectiveCategoryId),
     };
 
-    props.onSubmit(dto as any);
+    if (props.mode === "create") {
+      props.onSubmit(dto satisfies CreateTodoDto);
+      return;
+    }
+
+    props.onSubmit(dto satisfies UpdateTodoDto);
   }
 
   return (
@@ -95,7 +93,7 @@ export default function TodoForm(props: Props) {
 
       <CategorySelect
         categories={categories}
-        value={categoryId}
+        value={effectiveCategoryId}
         onChange={setCategoryId}
         label="Category"
       />

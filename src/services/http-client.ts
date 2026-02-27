@@ -6,8 +6,13 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
-const API_BASE =
-  (import.meta as any).env?.VITE_API_BASE?.toString().trim() || "/api";
+function resolveApiBase(): string {
+  const raw = import.meta.env.VITE_API_BASE;
+  if (typeof raw === "string" && raw.trim().length > 0) return raw.trim();
+  return "/api";
+}
+
+const API_BASE = resolveApiBase();
 
 function buildUrl(
   path: string,
