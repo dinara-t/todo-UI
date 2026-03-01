@@ -14,6 +14,11 @@ export const todoService = {
         category: query.category ?? undefined,
         sortBy: query.sortBy ?? undefined,
         order: query.order ?? undefined,
+        overdue: query.overdue ?? undefined,
+        dueBefore: query.dueBefore ?? undefined,
+        dueAfter: query.dueAfter ?? undefined,
+        urgency: query.urgency ?? undefined,
+        completed: query.completed ?? undefined,
       })}`,
     ),
   create: (dto: CreateTodoDto) =>
@@ -21,4 +26,16 @@ export const todoService = {
   update: (id: number, dto: UpdateTodoDto) =>
     http<Todo>(`/todos/${id}`, { method: "PUT", body: dto }),
   archive: (id: number) => http<void>(`/todos/${id}`, { method: "DELETE" }),
+  duplicate: (id: number, shiftDays?: number | null) =>
+    http<Todo>(
+      `/todos/${id}/duplicate${toQueryString({
+        shiftDays:
+          typeof shiftDays === "number" &&
+          Number.isFinite(shiftDays) &&
+          shiftDays !== 0
+            ? shiftDays
+            : undefined,
+      })}`,
+      { method: "POST" },
+    ),
 };

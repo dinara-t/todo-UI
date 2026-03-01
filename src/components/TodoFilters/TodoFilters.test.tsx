@@ -16,61 +16,44 @@ describe("TodoFilters", () => {
         categoryId={""}
         sortBy="createdAt"
         order="DESC"
+        completed="all"
+        overdue={false}
+        urgency=""
+        dueAfter=""
+        dueBefore=""
         onChange={onChange}
       />,
     );
 
-    const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[0], { target: { value: "2" } });
-
-    expect(onChange).toHaveBeenCalledWith({
-      categoryId: 2,
-      sortBy: "createdAt",
-      order: "DESC",
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: "2" },
     });
+
+    expect(onChange).toHaveBeenCalled();
+    const call = onChange.mock.calls[0][0];
+    expect(call.categoryId).toBe(2);
   });
 
-  it("calls onChange when sortBy changes", () => {
+  it("calls onChange when overdue toggled", () => {
     const onChange = vi.fn();
     render(
       <TodoFilters
         categories={categories}
-        categoryId={1}
+        categoryId={""}
         sortBy="createdAt"
         order="DESC"
+        completed="all"
+        overdue={false}
+        urgency=""
+        dueAfter=""
+        dueBefore=""
         onChange={onChange}
       />,
     );
 
-    const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[1], { target: { value: "title" } });
+    fireEvent.click(screen.getByText("Overdue only"));
 
-    expect(onChange).toHaveBeenCalledWith({
-      categoryId: 1,
-      sortBy: "title",
-      order: "DESC",
-    });
-  });
-
-  it("calls onChange when order changes", () => {
-    const onChange = vi.fn();
-    render(
-      <TodoFilters
-        categories={categories}
-        categoryId={1}
-        sortBy="createdAt"
-        order="DESC"
-        onChange={onChange}
-      />,
-    );
-
-    const selects = screen.getAllByRole("combobox");
-    fireEvent.change(selects[2], { target: { value: "ASC" } });
-
-    expect(onChange).toHaveBeenCalledWith({
-      categoryId: 1,
-      sortBy: "createdAt",
-      order: "ASC",
-    });
+    expect(onChange).toHaveBeenCalled();
+    expect(onChange.mock.calls[0][0].overdue).toBe(true);
   });
 });

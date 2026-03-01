@@ -7,6 +7,7 @@ import type {
   TodoSortBy,
   SortOrder,
   UpdateTodoDto,
+  Urgency,
 } from "../../types/todo";
 import { categoryService } from "../../services/category-services";
 import { todoService } from "../../services/todo-services";
@@ -25,6 +26,8 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
+type CompletedFilter = "all" | "true" | "false";
+
 export default function TodosPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -35,25 +38,48 @@ export default function TodosPage() {
   const [sortBy, setSortBy] = useState<TodoSortBy>("createdAt");
   const [order, setOrder] = useState<SortOrder>("DESC");
 
+  const [completed, setCompleted] = useState<CompletedFilter>("all");
+  const [overdue, setOverdue] = useState(false);
+  const [urgency, setUrgency] = useState<Urgency | "">("");
+  const [dueAfter, setDueAfter] = useState<string>("");
+  const [dueBefore, setDueBefore] = useState<string>("");
+
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [activeTodo, setActiveTodo] = useState<Todo | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const query: TodoQuery = useMemo(
-    () => ({
+  const query: TodoQuery = useMemo(() => {
+    const completedValue =
+      completed === "all" ? null : completed === "true" ? true : false;
+
+    return {
       category: categoryId === "" ? null : categoryId,
       sortBy,
       order,
-    }),
-    [categoryId, sortBy, order],
-  );
+      completed: completedValue,
+      overdue: overdue ? true : null,
+      urgency: urgency === "" ? null : urgency,
+      dueAfter: dueAfter.trim() ? dueAfter.trim() : null,
+      dueBefore: dueBefore.trim() ? dueBefore.trim() : null,
+    };
+  }, [
+    categoryId,
+    sortBy,
+    order,
+    completed,
+    overdue,
+    urgency,
+    dueAfter,
+    dueBefore,
+  ]);
 
   const stats = useMemo(() => {
     const total = todos.length;
     const done = todos.filter((t) => t.completed).length;
     const open = total - done;
-    return { total, done, open };
+    const overdueCount = todos.filter((t) => t.overdue && !t.completed).length;
+    return { total, done, open, overdueCount };
   }, [todos]);
 
   const loadAll = useCallback(async () => {
@@ -94,6 +120,21 @@ export default function TodosPage() {
     try {
       await todoService.archive(todo.id);
       setTodos((prev) => prev.filter((t) => t.id !== todo.id));
+    } catch (e) {
+      setErr(formatApiError(e));
+    }
+  }
+
+  async function duplicate(todo: Todo) {
+    setErr(null);
+    try {
+      const shiftDays =
+        typeof todo.recurrenceDays === "number" &&
+        Number.isFinite(todo.recurrenceDays)
+          ? todo.recurrenceDays
+          : null;
+      const created = await todoService.duplicate(todo.id, shiftDays);
+      setTodos((prev) => [created, ...prev]);
     } catch (e) {
       setErr(formatApiError(e));
     }
@@ -143,6 +184,7 @@ export default function TodosPage() {
             <StatPill label="total" value={String(stats.total)} />
             <StatPill label="open" value={String(stats.open)} />
             <StatPill label="done" value={String(stats.done)} />
+            <StatPill label="overdue" value={String(stats.overdueCount)} />
           </div>
         </div>
 
@@ -159,10 +201,20 @@ export default function TodosPage() {
         categoryId={categoryId}
         sortBy={sortBy}
         order={order}
+        completed={completed}
+        overdue={overdue}
+        urgency={urgency}
+        dueAfter={dueAfter}
+        dueBefore={dueBefore}
         onChange={(next) => {
           setCategoryId(next.categoryId);
           setSortBy(next.sortBy);
           setOrder(next.order);
+          setCompleted(next.completed);
+          setOverdue(next.overdue);
+          setUrgency(next.urgency);
+          setDueAfter(next.dueAfter);
+          setDueBefore(next.dueBefore);
         }}
       />
 
@@ -182,6 +234,7 @@ export default function TodosPage() {
           onToggle={toggle}
           onEdit={openEdit}
           onArchive={archive}
+          onDuplicate={duplicate}
         />
       )}
 

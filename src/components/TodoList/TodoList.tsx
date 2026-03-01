@@ -6,6 +6,7 @@ type Props = {
   onToggle: (todo: Todo) => void;
   onEdit: (todo: Todo) => void;
   onArchive: (todo: Todo) => void;
+  onDuplicate: (todo: Todo) => void;
 };
 
 export default function TodoList({
@@ -13,6 +14,7 @@ export default function TodoList({
   onToggle,
   onEdit,
   onArchive,
+  onDuplicate,
 }: Props) {
   if (!todos.length) {
     return (
@@ -43,6 +45,7 @@ export default function TodoList({
           onToggle={onToggle}
           onEdit={onEdit}
           onArchive={onArchive}
+          onDuplicate={onDuplicate}
         />
       ))}
     </div>

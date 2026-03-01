@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import TodoForm from "./TodoForm";
 import { vi } from "vitest";
+import TodoForm from "./TodoForm";
 
 describe("TodoForm", () => {
   const categories = [
@@ -19,7 +19,7 @@ describe("TodoForm", () => {
     expect(
       screen.getByText("Title must be longer than 1 character"),
     ).toBeInTheDocument();
-    expect(onSubmit).toHaveBeenCalledTimes(0);
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 
   it("submits a trimmed title and default categoryId", () => {
@@ -28,7 +28,7 @@ describe("TodoForm", () => {
       <TodoForm mode="create" categories={categories} onSubmit={onSubmit} />,
     );
 
-    fireEvent.change(screen.getByRole("textbox"), {
+    fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "  Buy milk  " },
     });
 
@@ -38,6 +38,9 @@ describe("TodoForm", () => {
       title: "Buy milk",
       completed: false,
       categoryId: 10,
+      dueDate: null,
+      urgency: null,
+      recurrenceDays: null,
     });
   });
 
@@ -47,12 +50,11 @@ describe("TodoForm", () => {
       <TodoForm mode="create" categories={categories} onSubmit={onSubmit} />,
     );
 
-    fireEvent.change(screen.getByRole("textbox"), {
+    fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Task" },
     });
 
-    const checkbox = screen.getByRole("checkbox");
-    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByText("Completed"));
 
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
@@ -60,6 +62,9 @@ describe("TodoForm", () => {
       title: "Task",
       completed: true,
       categoryId: 10,
+      dueDate: null,
+      urgency: null,
+      recurrenceDays: null,
     });
   });
 });

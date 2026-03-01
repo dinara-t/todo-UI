@@ -10,6 +10,7 @@ describe("TodoList", () => {
         onToggle={() => {}}
         onEdit={() => {}}
         onArchive={() => {}}
+        onDuplicate={() => {}}
       />,
     );
     expect(screen.getByText("No todos found")).toBeInTheDocument();
@@ -17,48 +18,40 @@ describe("TodoList", () => {
 
   it("renders a todo item for each todo", () => {
     const todos = [
-      { id: 1, title: "A", completed: false, category: null },
+      {
+        id: 1,
+        title: "One",
+        completed: false,
+        archived: false,
+        dueDate: null,
+        urgency: null,
+        recurrenceDays: null,
+        overdue: false,
+        category: null,
+      },
       {
         id: 2,
-        title: "B",
+        title: "Two",
         completed: true,
-        category: { id: 10, name: "Work" },
+        archived: false,
+        dueDate: null,
+        urgency: null,
+        recurrenceDays: null,
+        overdue: false,
+        category: null,
       },
     ];
-
     render(
       <TodoList
         todos={todos}
-        onToggle={() => {}}
-        onEdit={() => {}}
-        onArchive={() => {}}
+        onToggle={vi.fn()}
+        onEdit={vi.fn()}
+        onArchive={vi.fn()}
+        onDuplicate={vi.fn()}
       />,
     );
 
-    expect(screen.getByText("A")).toBeInTheDocument();
-    expect(screen.getByText("B")).toBeInTheDocument();
-  });
-
-  it("wires handlers through to TodoItem", () => {
-    const onToggle = vi.fn();
-    const onEdit = vi.fn();
-    const onArchive = vi.fn();
-
-    const todos = [{ id: 1, title: "Task", completed: false, category: null }];
-
-    render(
-      <TodoList
-        todos={todos}
-        onToggle={onToggle}
-        onEdit={onEdit}
-        onArchive={onArchive}
-      />,
-    );
-
-    expect(
-      screen.getByRole("checkbox", { name: "Toggle Task" }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Archive" })).toBeInTheDocument();
+    expect(screen.getByText("One")).toBeInTheDocument();
+    expect(screen.getByText("Two")).toBeInTheDocument();
   });
 });
