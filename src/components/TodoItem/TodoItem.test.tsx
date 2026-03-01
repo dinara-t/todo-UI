@@ -1,9 +1,10 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import TodoItem from "./TodoItem";
 import { vi } from "vitest";
+import TodoItem from "./TodoItem";
+import type { Todo } from "../../types/todo";
 
 describe("TodoItem", () => {
-  const todo = {
+  const todo: Todo = {
     id: 1,
     title: "Pay bills",
     completed: false,
