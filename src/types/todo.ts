@@ -51,3 +51,8 @@ export type TodoQuery = {
   urgency?: Urgency | null;
   completed?: boolean | null;
 };
+
+export type TodoPagedQuery = TodoQuery & {
+  page?: number;
+  size?: number;
+};

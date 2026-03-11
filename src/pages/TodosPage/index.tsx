@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { PageResponse } from "../../types/api";
 import type { Category } from "../../types/category";
 import type {
   CreateTodoDto,
   Todo,
-  TodoQuery,
+  TodoPagedQuery,
   TodoSortBy,
   SortOrder,
   UpdateTodoDto,
@@ -17,6 +18,7 @@ import TodoList from "../../components/TodoList/TodoList";
 import Button from "../../components/Button/Button";
 import Modal from "../../components/Modal/Modal";
 import TodoForm from "../../components/TodoForm/TodoForm";
+import Pagination from "../../components/Pagination/Pagination";
 
 function StatPill({ label, value }: { label: string; value: string }) {
   return (
@@ -28,10 +30,21 @@ function StatPill({ label, value }: { label: string; value: string }) {
 
 type CompletedFilter = "all" | "true" | "false";
 
+const EMPTY_PAGE: PageResponse<Todo> = {
+  items: [],
+  page: 0,
+  size: 10,
+  totalItems: 0,
+  totalPages: 0,
+  hasNext: false,
+  hasPrevious: false,
+};
+
 export default function TodosPage() {
   const [categories, setCategories] = useState<Category[]>([]);
-  const [todos, setTodos] = useState<Todo[]>([]);
+  const [todoPage, setTodoPage] = useState<PageResponse<Todo>>(EMPTY_PAGE);
   const [loading, setLoading] = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const [categoryId, setCategoryId] = useState<number | "">("");
@@ -44,12 +57,15 @@ export default function TodosPage() {
   const [dueAfter, setDueAfter] = useState<string>("");
   const [dueBefore, setDueBefore] = useState<string>("");
 
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(10);
+
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [activeTodo, setActiveTodo] = useState<Todo | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const query: TodoQuery = useMemo(() => {
+  const query: TodoPagedQuery = useMemo(() => {
     const completedValue =
       completed === "all" ? null : completed === "true" ? true : false;
 
@@ -62,6 +78,8 @@ export default function TodosPage() {
       urgency: urgency === "" ? null : urgency,
       dueAfter: dueAfter.trim() ? dueAfter.trim() : null,
       dueBefore: dueBefore.trim() ? dueBefore.trim() : null,
+      page,
+      size,
     };
   }, [
     categoryId,
@@ -72,7 +90,11 @@ export default function TodosPage() {
     urgency,
     dueAfter,
     dueBefore,
+    page,
+    size,
   ]);
+
+  const todos = todoPage.items;
 
   const stats = useMemo(() => {
     const total = todos.length;
@@ -82,16 +104,24 @@ export default function TodosPage() {
     return { total, done, open, overdueCount };
   }, [todos]);
 
-  const loadAll = useCallback(async () => {
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    try {
+      const data = await categoryService.list();
+      setCategories(data);
+    } catch (e) {
+      setErr(formatApiError(e));
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
+
+  const loadTodos = useCallback(async () => {
     setErr(null);
     setLoading(true);
     try {
-      const [cats, items] = await Promise.all([
-        categoryService.list(),
-        todoService.list(query),
-      ]);
-      setCategories(cats);
-      setTodos(items);
+      const data = await todoService.listPaged(query);
+      setTodoPage(data);
     } catch (e) {
       setErr(formatApiError(e));
     } finally {
@@ -100,16 +130,24 @@ export default function TodosPage() {
   }, [query]);
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    loadCategories();
+  }, [loadCategories]);
+
+  useEffect(() => {
+    loadTodos();
+  }, [loadTodos]);
+
+  async function refreshCurrentPage() {
+    await loadTodos();
+  }
 
   async function toggle(todo: Todo) {
     setErr(null);
     try {
-      const updated = await todoService.update(todo.id, {
+      await todoService.update(todo.id, {
         completed: !todo.completed,
       } satisfies UpdateTodoDto);
-      setTodos((prev) => prev.map((t) => (t.id === todo.id ? updated : t)));
+      await refreshCurrentPage();
     } catch (e) {
       setErr(formatApiError(e));
     }
@@ -119,7 +157,14 @@ export default function TodosPage() {
     setErr(null);
     try {
       await todoService.archive(todo.id);
-      setTodos((prev) => prev.filter((t) => t.id !== todo.id));
+
+      const isLastItemOnPage = todoPage.items.length === 1;
+      if (isLastItemOnPage && page > 0) {
+        setPage((prev) => prev - 1);
+        return;
+      }
+
+      await refreshCurrentPage();
     } catch (e) {
       setErr(formatApiError(e));
     }
@@ -133,8 +178,15 @@ export default function TodosPage() {
         Number.isFinite(todo.recurrenceDays)
           ? todo.recurrenceDays
           : null;
-      const created = await todoService.duplicate(todo.id, shiftDays);
-      setTodos((prev) => [created, ...prev]);
+
+      await todoService.duplicate(todo.id, shiftDays);
+
+      if (page !== 0) {
+        setPage(0);
+        return;
+      }
+
+      await refreshCurrentPage();
     } catch (e) {
       setErr(formatApiError(e));
     }
@@ -149,9 +201,15 @@ export default function TodosPage() {
     setErr(null);
     setSubmitting(true);
     try {
-      const created = await todoService.create(dto);
+      await todoService.create(dto);
       setCreateOpen(false);
-      setTodos((prev) => [created, ...prev]);
+
+      if (page !== 0) {
+        setPage(0);
+        return;
+      }
+
+      await refreshCurrentPage();
     } catch (e) {
       setErr(formatApiError(e));
     } finally {
@@ -161,13 +219,14 @@ export default function TodosPage() {
 
   async function save(dto: UpdateTodoDto) {
     if (!activeTodo) return;
+
     setErr(null);
     setSubmitting(true);
     try {
-      const updated = await todoService.update(activeTodo.id, dto);
+      await todoService.update(activeTodo.id, dto);
       setEditOpen(false);
       setActiveTodo(null);
-      setTodos((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+      await refreshCurrentPage();
     } catch (e) {
       setErr(formatApiError(e));
     } finally {
@@ -175,24 +234,40 @@ export default function TodosPage() {
     }
   }
 
+  const pageTotalItems = String(todoPage.totalItems);
+  const pageHasData = todoPage.totalItems > 0;
+
   return (
     <div className="grid gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-text">Todos</h1>
           <div className="mt-2 flex flex-wrap gap-2">
-            <StatPill label="total" value={String(stats.total)} />
+            <StatPill label="on this page" value={String(stats.total)} />
             <StatPill label="open" value={String(stats.open)} />
             <StatPill label="done" value={String(stats.done)} />
             <StatPill label="overdue" value={String(stats.overdueCount)} />
+            <StatPill label="overall" value={pageTotalItems} />
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={loadAll} disabled={loading}>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              loadCategories();
+              loadTodos();
+            }}
+            disabled={loading || categoriesLoading}
+          >
             Refresh
           </Button>
-          <Button onClick={() => setCreateOpen(true)}>New Todo</Button>
+          <Button
+            onClick={() => setCreateOpen(true)}
+            disabled={categoriesLoading || categories.length === 0}
+          >
+            New Todo
+          </Button>
         </div>
       </div>
 
@@ -215,6 +290,7 @@ export default function TodosPage() {
           setUrgency(next.urgency);
           setDueAfter(next.dueAfter);
           setDueBefore(next.dueBefore);
+          setPage(0);
         }}
       />
 
@@ -229,13 +305,32 @@ export default function TodosPage() {
           Loading…
         </div>
       ) : (
-        <TodoList
-          todos={todos}
-          onToggle={toggle}
-          onEdit={openEdit}
-          onArchive={archive}
-          onDuplicate={duplicate}
-        />
+        <>
+          <TodoList
+            todos={todos}
+            onToggle={toggle}
+            onEdit={openEdit}
+            onArchive={archive}
+            onDuplicate={duplicate}
+          />
+
+          {pageHasData ? (
+            <Pagination
+              page={todoPage.page}
+              totalPages={todoPage.totalPages}
+              totalItems={todoPage.totalItems}
+              size={todoPage.size}
+              hasNext={todoPage.hasNext}
+              hasPrevious={todoPage.hasPrevious}
+              onPageChange={setPage}
+              onSizeChange={(nextSize) => {
+                setSize(nextSize);
+                setPage(0);
+              }}
+              disabled={loading}
+            />
+          ) : null}
+        </>
       )}
 
       <Modal
